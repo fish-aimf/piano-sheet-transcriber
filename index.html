@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Melody Mapper</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1 class="logo">🎹 Melody Mapper</h1>
+            <div class="upload-area">
+                <button id="uploadBtn" class="btn btn-upload">Upload Audio</button>
+                <input type="file" id="fileInput" accept="audio/*" hidden>
+                <span id="fileName" class="file-name">No file selected</span>
+            </div>
+        </header>
+
+        <div class="transport-bar">
+            <div class="transport-group">
+                <button id="playBtn" class="btn btn-play" title="Space">▶ Play</button>
+                <button id="stopBtn" class="btn btn-stop" title="Stop">⏹ Stop</button>
+                <button id="recordBtn" class="btn btn-record" title="R">● Record</button>
+            </div>
+            <div class="transport-group">
+                <button id="loopBtn" class="btn btn-loop" title="L">Loop</button>
+                <button id="setLoopStartBtn" class="btn btn-loop-set" title="I">Set Loop Start</button>
+                <button id="setLoopEndBtn" class="btn btn-loop-set" title="O">Set Loop End</button>
+                <button id="clearSectionBtn" class="btn btn-clear" title="Clear loop section">Clear Section</button>
+            </div>
+            <div class="transport-group">
+                <span class="time-display" id="timeDisplay">0:00.0 / 0:00.0</span>
+            </div>
+            <div class="transport-group mode-selector">
+                <span class="mode-label">Playback:</span>
+                <button class="btn btn-mode active" data-mode="both">Both</button>
+                <button class="btn btn-mode" data-mode="original">Original</button>
+                <button class="btn btn-mode" data-mode="notes">Notes</button>
+            </div>
+        </div>
+
+        <div class="timeline-container">
+            <canvas id="timelineCanvas" class="timeline-canvas"></canvas>
+        </div>
+
+        <div class="keyboard-container">
+            <div class="piano-keyboard" id="pianoKeyboard"></div>
+        </div>
+
+        <div class="status-bar">
+            <span id="statusText">Load an audio file to begin</span>
+            <span id="noteCount">Notes: 0</span>
+            <span id="loopInfo">Loop: Off</span>
+            <span id="recordIndicator" class="record-indicator hidden">● REC</span>
+        </div>
+    </div>
+
+    <div id="dropOverlay" class="drop-overlay hidden">
+        <div class="drop-message">Drop audio file to load</div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
