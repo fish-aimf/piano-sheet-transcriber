@@ -11,12 +11,6 @@
         'KeyK': 72, 'KeyO': 73, 'KeyL': 74, 'KeyP': 75, 'Semicolon': 76, 'Quote': 77,
         'BracketRight': 78, 'Backslash': 79
     };
-    const KEY_DISPLAY = {
-        'KeyA': 'C4', 'KeyW': 'C#4', 'KeyS': 'D4', 'KeyE': 'D#4', 'KeyD': 'E4', 'KeyF': 'F4',
-        'KeyT': 'F#4', 'KeyG': 'G4', 'KeyY': 'G#4', 'KeyH': 'A4', 'KeyU': 'A#4', 'KeyJ': 'B4',
-        'KeyK': 'C5', 'KeyO': 'C#5', 'KeyL': 'D5', 'KeyP': 'D#5', 'Semicolon': 'E5', 'Quote': 'F5',
-        'BracketRight': 'F#5', 'Backslash': 'G5'
-    };
     const NOTE_COLOR = '#4dd0e1';
     const LOOP_COLOR = 'rgba(102,187,106,0.18)';
     const PLAYHEAD_COLOR = '#ff7043';
@@ -24,6 +18,15 @@
     const MIN_NOTE_DURATION = 0.08;
     const LOOKAHEAD_MS = 120;
     const SCHEDULE_INTERVAL_MS = 25;
+
+    // Piano synthesis parameters
+    const HARMONICS = [
+        { multiplier: 1, gain: 1.0, decay: 1.5 },
+        { multiplier: 2, gain: 0.5, decay: 1.2 },
+        { multiplier: 3, gain: 0.25, decay: 1.0 },
+        { multiplier: 4, gain: 0.15, decay: 0.8 },
+        { multiplier: 5, gain: 0.08, decay: 0.6 }
+    ];
 
     let audioCtx = null;
     let audioBuffer = null;
@@ -237,24 +240,63 @@
         });
     }
 
+    // Create a piano-like sound using additive synthesis
+    function createPianoVoice(freq, startTime, masterGain, duration) {
+        const oscillators = [];
+        const individualGains = [];
+
+        HARMONICS.forEach((harmonic, index) => {
+            const osc = audioCtx.createOscillator();
+            const oscGain = audioCtx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq * harmonic.multiplier, startTime);
+
+            // Set initial gain for this harmonic
+            oscGain.gain.setValueAtTime(0, startTime);
+            // Attack (fast)
+            oscGain.gain.linearRampToValueAtTime(harmonic.gain, startTime + 0.005);
+            // Decay (exponential) - for realtime, we'll control master gain instead
+            if (duration !== undefined) {
+                // For scheduled notes, set the decay envelope directly
+                oscGain.gain.setTargetAtTime(0, startTime + 0.005, harmonic.decay / 3);
+            }
+
+            osc.connect(oscGain);
+            oscGain.connect(masterGain);
+
+            osc.start(startTime);
+            if (duration !== undefined) {
+                osc.stop(startTime + duration + 0.1);
+            }
+
+            oscillators.push(osc);
+            individualGains.push(oscGain);
+        });
+
+        return { oscillators, individualGains };
+    }
+
     function handleKeyPress(midi, sourceId) {
         if (!audioCtx) return;
         const now = audioCtx.currentTime;
         const freq = midiToFrequency(midi);
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, now);
-        gain.gain.setValueAtTime(0, now);
-        gain.gain.linearRampToValueAtTime(0.5, now + 0.008);
-        gain.gain.setValueAtTime(0.5, now + 0.01);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(now);
+
+        // Master gain for this note
+        const masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(0, now);
+        masterGain.gain.linearRampToValueAtTime(0.5, now + 0.008);
+        // Natural piano decay while held
+        masterGain.gain.setTargetAtTime(0.25, now + 0.008, 0.5);
+        masterGain.connect(audioCtx.destination);
+
+        const { oscillators, individualGains } = createPianoVoice(freq, now, masterGain);
+
         const noteId = nextNoteId++;
         const noteData = {
-            osc,
-            gain,
+            oscillators,
+            individualGains,
+            masterGain,
             midi,
             startCtxTime: now,
             startBufferTime: currentBufferPos,
@@ -262,6 +304,7 @@
         };
         activeNotes.set(sourceId + '-' + midi, noteData);
         highlightKey(midi, true);
+
         if (isRecording && isPlaying) {
             const startTime = currentBufferPos;
             replaceOverlappingNotes(startTime, Math.max(MIN_NOTE_DURATION, 0.12));
@@ -283,12 +326,20 @@
         const now = audioCtx.currentTime;
         const heldDuration = now - noteData.startCtxTime;
         const actualDuration = Math.max(heldDuration, MIN_NOTE_DURATION);
-        noteData.gain.gain.cancelScheduledValues(now);
-        noteData.gain.gain.setValueAtTime(noteData.gain.gain.value, now);
-        noteData.gain.gain.linearRampToValueAtTime(0, now + 0.05);
-        noteData.osc.stop(now + 0.06);
+
+        // Quick release
+        noteData.masterGain.gain.cancelScheduledValues(now);
+        noteData.masterGain.gain.setValueAtTime(noteData.masterGain.gain.value, now);
+        noteData.masterGain.gain.linearRampToValueAtTime(0, now + 0.05);
+
+        // Stop oscillators after release
+        noteData.oscillators.forEach(osc => {
+            try { osc.stop(now + 0.06); } catch (e) {}
+        });
+
         activeNotes.delete(key);
         highlightKey(midi, false);
+
         if (isRecording && isPlaying) {
             const matchingNote = recordedNotes.find(n => n.noteId === noteData.noteId && Math.abs(n.startTime - noteData.startBufferTime) < 0.001);
             if (matchingNote) {
@@ -310,7 +361,6 @@
             waveformPeaks = null;
             return;
         }
-        const numChannels = audioBuffer.numberOfChannels;
         const data = audioBuffer.getChannelData(0);
         const samplesPerPixel = Math.max(1, Math.floor(data.length / 800));
         const peaks = [];
@@ -547,9 +597,11 @@
         const now = audioCtx ? audioCtx.currentTime : 0;
         activeNotes.forEach((noteData) => {
             try {
-                noteData.gain.gain.cancelScheduledValues(now);
-                noteData.gain.gain.setValueAtTime(0, now);
-                noteData.osc.stop(now + 0.03);
+                noteData.masterGain.gain.cancelScheduledValues(now);
+                noteData.masterGain.gain.setValueAtTime(0, now);
+                noteData.oscillators.forEach(osc => {
+                    try { osc.stop(now + 0.03); } catch (e) {}
+                });
             } catch (e) {}
             highlightKey(noteData.midi, false);
         });
@@ -574,46 +626,54 @@
         const scheduleHorizon = ctxTime + LOOKAHEAD_MS / 1000;
         const effectiveStart = getEffectiveStartTime();
         const effectiveEnd = getEffectiveEndTime();
-        const duration = getAudioDuration();
-        const playheadPos = currentBufferPos;
+
         const notesToPlay = recordedNotes.filter(note => {
             const noteCtxTime = playbackStartCtxTime + (note.startTime - playbackStartBufferPos);
             return noteCtxTime >= ctxTime - 0.05 && noteCtxTime <= scheduleHorizon && note.startTime >= effectiveStart - 0.01 && note.startTime < effectiveEnd;
         });
+
         if (playbackMode === 'notes' || playbackMode === 'both') {
             notesToPlay.forEach(note => {
                 const noteCtxTime = playbackStartCtxTime + (note.startTime - playbackStartBufferPos);
                 if (noteCtxTime < ctxTime) return;
-                if (scheduledNoteIds.has(note.noteId + '-' + Math.round(noteCtxTime * 1000))) return;
-                scheduledNoteIds.add(note.noteId + '-' + Math.round(noteCtxTime * 1000));
-                scheduleSynthesizedNote(note, noteCtxTime);
+                const uniqueId = note.noteId + '-' + Math.round(noteCtxTime * 1000);
+                if (scheduledNoteIds.has(uniqueId)) return;
+                scheduledNoteIds.add(uniqueId);
+                schedulePianoNote(note, noteCtxTime);
             });
         }
-        if (loopEnabled && effectiveEnd > effectiveStart && currentBufferPos >= effectiveEnd - 0.02) {
-            const loopLen = effectiveEnd - effectiveStart;
-            currentBufferPos = effectiveStart + ((currentBufferPos - effectiveStart) % loopLen);
-            playbackStartCtxTime = ctxTime - (currentBufferPos - playbackStartBufferPos);
-        }
+
+        // Cleanup old scheduled IDs
         scheduledNoteIds.forEach(key => {
             const parts = key.split('-');
-            const noteCtxTimeMs = parseInt(parts[parts.length - 1]);
-            if (noteCtxTimeMs < ctxTime * 1000 - 200) scheduledNoteIds.delete(key);
+            const timeMs = parseInt(parts[parts.length - 1]);
+            if (timeMs < ctxTime * 1000 - 200) scheduledNoteIds.delete(key);
         });
     }
 
-    function scheduleSynthesizedNote(note, startCtxTime) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(note.frequency, startCtxTime);
-        gain.gain.setValueAtTime(0, startCtxTime);
-        gain.gain.linearRampToValueAtTime(0.45, startCtxTime + 0.01);
-        gain.gain.setValueAtTime(0.45, startCtxTime + Math.max(0.01, note.duration - 0.05));
-        gain.gain.linearRampToValueAtTime(0, startCtxTime + note.duration);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(startCtxTime);
-        osc.stop(startCtxTime + note.duration + 0.05);
+    function schedulePianoNote(note, startCtxTime) {
+        const freq = note.frequency;
+        const duration = Math.max(note.duration, 0.1);
+        const masterGain = audioCtx.createGain();
+        masterGain.gain.setValueAtTime(0, startCtxTime);
+        masterGain.gain.linearRampToValueAtTime(0.5, startCtxTime + 0.005);
+        masterGain.gain.setTargetAtTime(0, startCtxTime + 0.005, 0.3);
+        masterGain.gain.linearRampToValueAtTime(0, startCtxTime + duration);
+        masterGain.connect(audioCtx.destination);
+
+        HARMONICS.forEach((harmonic) => {
+            const osc = audioCtx.createOscillator();
+            const oscGain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq * harmonic.multiplier, startCtxTime);
+            oscGain.gain.setValueAtTime(0, startCtxTime);
+            oscGain.gain.linearRampToValueAtTime(harmonic.gain, startCtxTime + 0.005);
+            oscGain.gain.setTargetAtTime(0, startCtxTime + 0.005, harmonic.decay / 3);
+            osc.connect(oscGain);
+            oscGain.connect(masterGain);
+            osc.start(startCtxTime);
+            osc.stop(startCtxTime + duration + 0.1);
+        });
     }
 
     function startAnimationLoop() {
@@ -710,11 +770,10 @@
             btn.classList.toggle('active', btn.dataset.mode === mode);
         });
         if (isPlaying) {
-            const wasPlaying = true;
             const currentPos = currentBufferPos;
             pausePlayback();
             currentBufferPos = currentPos;
-            if (wasPlaying) startPlayback();
+            startPlayback();
         }
     }
 
