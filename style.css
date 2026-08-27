@@ -1,0 +1,431 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --bg-primary: #1a1a2e;
+    --bg-secondary: #16213e;
+    --bg-tertiary: #0f3460;
+    --bg-key-white: #f8f9fa;
+    --bg-key-black: #1a1a1a;
+    --bg-key-white-pressed: #b3d9ff;
+    --bg-key-black-pressed: #3a3a5c;
+    --text-primary: #e8e8e8;
+    --text-secondary: #a0a0b8;
+    --accent: #4fc3f7;
+    --accent-record: #ef5350;
+    --accent-loop: #66bb6a;
+    --accent-note: #4dd0e1;
+    --border: #2a2a4a;
+    --shadow: rgba(0, 0, 0, 0.4);
+    --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+body {
+    font-family: var(--font);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 12px;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.app-container {
+    width: 100%;
+    max-width: 1100px;
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    box-shadow: 0 8px 40px var(--shadow);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    position: relative;
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+.logo {
+    font-size: 1.6rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), #81d4fa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.upload-area {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.file-name {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    transition: all 0.15s ease;
+    letter-spacing: 0.3px;
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.btn:hover {
+    filter: brightness(1.2);
+    border-color: var(--accent);
+}
+
+.btn:active {
+    transform: scale(0.96);
+}
+
+.btn-upload {
+    background: var(--accent);
+    color: #0a0a1a;
+    border-color: var(--accent);
+}
+
+.btn-upload:hover {
+    background: #81d4fa;
+}
+
+.btn-play {
+    background: #2e7d32;
+    border-color: #2e7d32;
+    min-width: 80px;
+}
+
+.btn-play:hover {
+    background: #388e3c;
+}
+
+.btn-play.playing {
+    background: #f57c00;
+    border-color: #f57c00;
+}
+
+.btn-stop {
+    background: #c62828;
+    border-color: #c62828;
+}
+
+.btn-stop:hover {
+    background: #d32f2f;
+}
+
+.btn-record {
+    background: #424242;
+    border-color: #555;
+    min-width: 90px;
+}
+
+.btn-record.armed {
+    background: var(--accent-record);
+    border-color: var(--accent-record);
+    animation: pulse-record 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse-record {
+    0%,
+    100% {
+        box-shadow: 0 0 0 0 rgba(239, 83, 80, 0.6);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(239, 83, 80, 0);
+    }
+}
+
+.btn-loop {
+    background: #424242;
+    border-color: #555;
+}
+
+.btn-loop.active {
+    background: var(--accent-loop);
+    border-color: var(--accent-loop);
+    color: #0a0a1a;
+}
+
+.btn-loop-set {
+    background: #37474f;
+    border-color: #546e7a;
+    font-size: 0.75rem;
+    padding: 8px 10px;
+}
+
+.btn-loop-set:hover {
+    background: #455a64;
+}
+
+.btn-clear {
+    background: #4a148c;
+    border-color: #6a1b9a;
+    font-size: 0.75rem;
+}
+
+.btn-clear:hover {
+    background: #6a1b9a;
+}
+
+.btn-mode {
+    background: #37474f;
+    border-color: #546e7a;
+    font-size: 0.75rem;
+    padding: 6px 12px;
+    border-radius: 6px;
+}
+
+.btn-mode.active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0a0a1a;
+    font-weight: 700;
+}
+
+.transport-bar {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 14px;
+}
+
+.transport-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.mode-selector {
+    margin-left: auto;
+}
+
+.mode-label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin-right: 4px;
+}
+
+.time-display {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 1px;
+}
+
+.timeline-container {
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-primary);
+    border: 1px solid var(--border);
+    position: relative;
+}
+
+.timeline-canvas {
+    display: block;
+    width: 100%;
+    height: 180px;
+    cursor: crosshair;
+}
+
+.keyboard-container {
+    width: 100%;
+    overflow-x: auto;
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+}
+
+.piano-keyboard {
+    position: relative;
+    min-width: 700px;
+    height: 150px;
+    margin: 0 auto;
+    border-radius: 6px;
+    overflow: visible;
+}
+
+.white-key {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    background: var(--bg-key-white);
+    border: 1px solid #ccc;
+    border-radius: 0 0 5px 5px;
+    cursor: pointer;
+    z-index: 1;
+    transition: background 0.06s ease;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2);
+}
+
+.white-key:hover {
+    background: #e8ecf1;
+}
+
+.white-key.pressed {
+    background: var(--bg-key-white-pressed);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    transform: translateY(2px);
+}
+
+.black-key {
+    position: absolute;
+    height: 58%;
+    background: var(--bg-key-black);
+    border: 1px solid #000;
+    border-radius: 0 0 4px 4px;
+    cursor: pointer;
+    z-index: 2;
+    transition: background 0.06s ease;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+}
+
+.black-key:hover {
+    background: #2a2a2a;
+}
+
+.black-key.pressed {
+    background: var(--bg-key-black-pressed);
+    transform: translateY(2px);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.key-label {
+    position: absolute;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.6rem;
+    pointer-events: none;
+    opacity: 0.5;
+    font-weight: 600;
+}
+
+.white-key .key-label {
+    color: #666;
+}
+
+.black-key .key-label {
+    color: #aaa;
+    bottom: 4px;
+    font-size: 0.5rem;
+}
+
+.status-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    padding-top: 4px;
+    flex-wrap: wrap;
+}
+
+.record-indicator {
+    color: var(--accent-record);
+    font-weight: 700;
+    font-size: 0.85rem;
+    animation: blink 0.8s ease-in-out infinite;
+}
+
+@keyframes blink {
+    0%,
+    100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.3;
+    }
+}
+
+.hidden {
+    display: none !important;
+}
+
+.drop-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    pointer-events: all;
+}
+
+.drop-message {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--accent);
+    text-align: center;
+    border: 3px dashed var(--accent);
+    padding: 40px 60px;
+    border-radius: 16px;
+    background: rgba(15, 52, 96, 0.8);
+}
+
+@media (max-width: 768px) {
+    .app-container {
+        padding: 12px;
+        gap: 8px;
+    }
+    .logo {
+        font-size: 1.3rem;
+    }
+    .btn {
+        padding: 6px 10px;
+        font-size: 0.75rem;
+    }
+    .transport-bar {
+        gap: 8px;
+    }
+    .mode-selector {
+        margin-left: 0;
+        width: 100%;
+        justify-content: flex-start;
+    }
+    .timeline-canvas {
+        height: 120px;
+    }
+    .piano-keyboard {
+        height: 120px;
+        min-width: 560px;
+    }
+    .file-name {
+        max-width: 120px;
+    }
+}
+</style>
